@@ -57,6 +57,8 @@ final class RelayIntegrationTests: XCTestCase {
         var isPhoneReady = false
         var testingOffline = false
         var cleaningUp = false
+        var transferStarted = false
+        phone.onTransferStarted = { transferStarted = true }
         mac.onReady = { if !isMacReady { isMacReady = true; macReady.fulfill() } }
         phone.onReady = { if !isPhoneReady { isPhoneReady = true; phoneReady.fulfill() } }
         mac.onClose = { reason in if !cleaningUp { XCTFail(reason) } }
@@ -64,6 +66,7 @@ final class RelayIntegrationTests: XCTestCase {
         mac.onPeerUnavailable = { if testingOffline { offline.fulfill() } }
         mac.onMessage = { received in
             do {
+                XCTAssertTrue(transferStarted, "The photo request reaches Mac only after transfer admission")
                 if let challenge = authorization.issue(for: received) {
                     XCTAssertEqual(received, request)
                     try mac.send(challenge)

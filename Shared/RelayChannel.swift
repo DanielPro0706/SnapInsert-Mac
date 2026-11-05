@@ -45,6 +45,51 @@ struct RelayCipher {
     }
 }
 
+/// Keeps a sealed photo request off the wire until its own transfer slot is granted.
+struct RelayTransferSlot {
+    private struct Transfer {
+        let id: UUID
+        let photoID: UUID
+        let attempt: UUID
+        var encryptedRequest: Data?
+    }
+
+    private var transfer: Transfer?
+    var currentID: UUID? { transfer?.id }
+
+    mutating func begin(_ message: WireMessage, encryptedRequest: Data) throws -> UUID {
+        guard transfer == nil else { throw RelayError.queueFull }
+        guard message.kind == .photoRequest, let attempt = message.attempt else { throw WireError.invalidMessage }
+        let id = UUID()
+        transfer = Transfer(id: id, photoID: message.id, attempt: attempt, encryptedRequest: encryptedRequest)
+        return id
+    }
+
+    mutating func grant(_ id: UUID) -> Data? {
+        guard transfer?.id == id, let request = transfer?.encryptedRequest else { return nil }
+        transfer?.encryptedRequest = nil
+        return request
+    }
+
+    func allowsPhoto(_ message: WireMessage) -> Bool {
+        guard let transfer else { return false }
+        return message.kind == .photo && transfer.encryptedRequest == nil
+            && message.id == transfer.photoID && message.attempt == transfer.attempt
+    }
+
+    mutating func complete(_ receipt: WireMessage) -> UUID? {
+        guard receipt.kind == .receipt, let transfer,
+              receipt.id == transfer.photoID, receipt.attempt == transfer.attempt else { return nil }
+        self.transfer = nil
+        return transfer.id
+    }
+
+    mutating func cancel() -> UUID? {
+        defer { transfer = nil }
+        return transfer?.id
+    }
+}
+
 @MainActor
 final class RelayChannel {
     enum Role: String, Codable, Sendable {
@@ -58,6 +103,9 @@ final class RelayChannel {
     var onPeerUnavailable: (() -> Void)?
     var onReplaced: (() -> Void)?
     var onAuthorizationRequired: ((String) -> Void)?
+    var onTransferQueued: (() -> Void)?
+    var onTransferStarted: (() -> Void)?
+    var onTransferUnavailable: ((String) -> Void)?
 
     private let pairing: PairingInfo
     private let role: Role
@@ -70,7 +118,14 @@ final class RelayChannel {
     private var pingDeadline: Task<Void, Never>?
     private var handshakeDeadline: Task<Void, Never>?
     private var pendingPing: UUID?
-    private var outgoing: [Data] = []
+    private struct Outgoing {
+        let message: URLSessionWebSocketTask.Message
+        let byteCount: Int
+        let transferID: UUID?
+    }
+    private var outgoing: [Outgoing] = []
+    private var transferSlot = RelayTransferSlot()
+    private var supportsTransferControl = false
     private var queuedBytes = 0
     private var started = false
     private var closed = false
@@ -120,17 +175,90 @@ final class RelayChannel {
 
     func send(_ message: WireMessage) throws {
         guard !closed, peerReady, socket != nil, let cipher else { throw WireError.notReady }
+        if role == .phone, supportsTransferControl, message.kind == .photo,
+           !transferSlot.allowsPhoto(message) { throw WireError.notReady }
         let data = try cipher.seal(message, sender: role)
-        guard outgoing.count < 4, queuedBytes + data.count <= WireFrame.maximumFrameLength + 28
+        if role == .phone, supportsTransferControl, message.kind == .photoRequest {
+            let id = try transferSlot.begin(message, encryptedRequest: data)
+            do { try enqueueControl(action: "begin", id: id) }
+            catch { _ = transferSlot.cancel(); throw error }
+            onTransferQueued?()
+            return
+        }
+        try enqueue(.data(data), byteCount: data.count, transferID: transferSlot.currentID)
+        if role == .phone, message.kind == .photoRequest { onTransferStarted?() }
+    }
+
+    /// Cancelling a queued or uncertain attempt never recalls bytes already sent to the Mac.
+    func cancelTransfer() {
+        guard let id = transferSlot.cancel() else { return }
+        removeOutgoing(for: id)
+        guard !closed, socket != nil else { return }
+        do { try enqueueControl(action: "cancel", id: id) }
+        catch { close(reason: "无法取消中转等待，连接已关闭。") }
+    }
+
+    func cancel() { close(reason: "连接已断开。") }
+
+    private func enqueue(_ message: URLSessionWebSocketTask.Message, byteCount: Int, transferID: UUID? = nil) throws {
+        guard outgoing.count < 4, queuedBytes + byteCount <= WireFrame.maximumFrameLength + 28
         else { throw RelayError.queueFull }
-        outgoing.append(data)
-        queuedBytes += data.count
+        outgoing.append(Outgoing(message: message, byteCount: byteCount, transferID: transferID))
+        queuedBytes += byteCount
         if sendTask == nil {
             sendTask = Task { [weak self] in await self?.drainOutgoing() }
         }
     }
 
-    func cancel() { close(reason: "连接已断开。") }
+    private func enqueueControl(action: String, id: UUID) throws {
+        let data = try JSONEncoder().encode(TransferCommand(type: "transfer", action: action, id: id.uuidString.lowercased()))
+        guard let text = String(data: data, encoding: .utf8) else { throw RelayError.invalidMessage }
+        try enqueue(.string(text), byteCount: data.count, transferID: action == "begin" ? id : nil)
+    }
+
+    private func removeOutgoing(for id: UUID) {
+        outgoing.removeAll { $0.transferID == id }
+        queuedBytes = outgoing.reduce(0) { $0 + $1.byteCount }
+    }
+
+    private func receiveControl(_ text: String) throws {
+        guard text.utf8.count <= 1024 else { throw RelayError.invalidMessage }
+        let message = try JSONDecoder().decode(ServerControl.self, from: Data(text.utf8))
+        switch message.type {
+        case "presence":
+            guard let peer = message.peer else { throw RelayError.invalidMessage }
+            supportsTransferControl = supportsTransferControl || message.transferControl == true
+            handshakeDeadline?.cancel()
+            if peer {
+                if !peerReady { peerReady = true; onReady?() }
+            } else {
+                peerReady = false
+                _ = transferSlot.cancel()
+                outgoing.removeAll()
+                queuedBytes = 0
+                onPeerUnavailable?()
+            }
+        case "transfer":
+            guard role == .phone, supportsTransferControl, let id = message.id, let state = message.state,
+                  ["queued", "granted", "cancelled", "expired"].contains(state)
+            else { throw RelayError.invalidMessage }
+            guard transferSlot.currentID == id else { return }
+            switch state {
+            case "queued": break // The deadline began with the original request, not repeated status messages.
+            case "granted":
+                guard let data = transferSlot.grant(id) else { return }
+                try enqueue(.data(data), byteCount: data.count, transferID: id)
+                onTransferStarted?()
+            default:
+                _ = transferSlot.cancel()
+                removeOutgoing(for: id)
+                onTransferUnavailable?(state == "expired"
+                    ? "中转传输名额等待超时，照片已保留，请重试。"
+                    : "中转传输已取消，照片已保留，请重试。")
+            }
+        default: throw RelayError.invalidMessage
+        }
+    }
 
     private func receiveLoop() async {
         guard let socket else { return }
@@ -147,20 +275,17 @@ final class RelayChannel {
                         break
                     default: throw RelayError.invalidMessage
                     }
-                    onMessage?(decoded)
-                case .string(let text):
-                    guard text.utf8.count <= 1024 else { throw RelayError.invalidMessage }
-                    let presence = try JSONDecoder().decode(Presence.self, from: Data(text.utf8))
-                    guard presence.type == "presence" else { throw RelayError.invalidMessage }
-                    handshakeDeadline?.cancel()
-                    if presence.peer {
-                        if !peerReady { peerReady = true; onReady?() }
-                    } else {
-                        peerReady = false
-                        outgoing.removeAll()
-                        queuedBytes = 0
-                        onPeerUnavailable?()
+                    var releaseFailed = false
+                    if role == .phone, let id = transferSlot.complete(decoded) {
+                        removeOutgoing(for: id)
+                        do { try enqueueControl(action: "end", id: id) }
+                        catch { releaseFailed = true }
                     }
+                    // Preserve a genuine receipt even if the release control cannot be queued.
+                    onMessage?(decoded)
+                    if releaseFailed { close(reason: "照片回执已收到，正在重新连接中转。") }
+                case .string(let text):
+                    try receiveControl(text)
                 @unknown default: throw RelayError.invalidMessage
                 }
             } catch {
@@ -183,9 +308,9 @@ final class RelayChannel {
     private func drainOutgoing() async {
         defer { sendTask = nil }
         while !closed, !Task.isCancelled, !outgoing.isEmpty {
-            let data = outgoing.removeFirst()
-            queuedBytes -= data.count
-            do { try await socket?.send(.data(data)) }
+            let frame = outgoing.removeFirst()
+            queuedBytes -= frame.byteCount
+            do { try await socket?.send(frame.message) }
             catch { close(reason: "照片发送失败：\(error.localizedDescription)"); return }
         }
     }
@@ -213,6 +338,7 @@ final class RelayChannel {
         guard !closed else { return }
         closed = true
         peerReady = false
+        _ = transferSlot.cancel()
         receiveTask?.cancel()
         sendTask?.cancel()
         pingTask?.cancel()
@@ -234,8 +360,17 @@ final class RelayChannel {
         else { onClose?(reason) }
     }
 
-    private struct Presence: Decodable {
+    private struct TransferCommand: Encodable {
         let type: String
-        let peer: Bool
+        let action: String
+        let id: String
+    }
+
+    private struct ServerControl: Decodable {
+        let type: String
+        let peer: Bool?
+        let transferControl: Bool?
+        let id: UUID?
+        let state: String?
     }
 }

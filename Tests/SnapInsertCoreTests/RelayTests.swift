@@ -3,6 +3,62 @@ import XCTest
 @testable import SnapInsertCore
 
 final class RelayTests: XCTestCase {
+    func testTransferSlotHoldsRequestUntilItsMatchingGrant() throws {
+        var slot = RelayTransferSlot()
+        let request = WireMessage.photoRequest(id: UUID(), attempt: UUID())
+        let cipher = try RelayCipher(pairing: PairingInfo.create(name: "Transfer slot test"))
+        let encrypted = try cipher.seal(request, sender: .phone)
+        let id = try slot.begin(request, encryptedRequest: encrypted)
+        let photo = WireMessage.photo(id: request.id, jpeg: Data([0xff, 0xd8, 0xff, 0xd9]),
+                                      attempt: request.attempt, challenge: UUID())
+        XCTAssertFalse(slot.allowsPhoto(photo), "JPEG must stay local while queued")
+        XCTAssertNil(slot.grant(UUID()), "A different transfer grant cannot start this request")
+        XCTAssertEqual(slot.currentID, id)
+        let granted = try XCTUnwrap(slot.grant(id))
+        XCTAssertEqual(try cipher.open(granted, sender: .phone), request)
+        XCTAssertTrue(slot.allowsPhoto(photo))
+        XCTAssertNil(slot.grant(id), "Duplicate grants must not retransmit the request or reset deadlines")
+        XCTAssertFalse(slot.allowsPhoto(.photo(id: UUID(), jpeg: photo.jpeg!, attempt: request.attempt, challenge: UUID())))
+        XCTAssertFalse(slot.allowsPhoto(.photo(id: request.id, jpeg: photo.jpeg!, attempt: UUID(), challenge: UUID())))
+    }
+
+    func testOldReceiptCannotReleaseRetriedPhotoSlot() throws {
+        var slot = RelayTransferSlot()
+        let photoID = UUID()
+        let originalAttempt = UUID()
+        let old = WireMessage.photoRequest(id: photoID, attempt: originalAttempt)
+        let oldSlot = try slot.begin(old, encryptedRequest: Data([1]))
+        XCTAssertEqual(slot.grant(oldSlot), Data([1]))
+        XCTAssertEqual(slot.cancel(), oldSlot)
+        let retry = WireMessage.photoRequest(id: photoID, attempt: UUID())
+        let retrySlot = try slot.begin(retry, encryptedRequest: Data([2]))
+        XCTAssertNil(slot.grant(oldSlot), "A delayed grant after cancellation must not send a newer request")
+        let oldReceipt = WireMessage.receipt(id: photoID, status: "pasted", detail: "Old receipt", attempt: originalAttempt)
+        XCTAssertNil(slot.complete(oldReceipt), "Stable photo UUID alone is insufficient across retries")
+        XCTAssertEqual(slot.currentID, retrySlot)
+        XCTAssertEqual(slot.grant(retrySlot), Data([2]))
+        XCTAssertNil(slot.complete(oldReceipt))
+        let receipt = WireMessage.receipt(id: photoID, status: "pasted", detail: "Current receipt", attempt: retry.attempt)
+        XCTAssertEqual(slot.complete(receipt), retrySlot)
+        XCTAssertNil(slot.currentID)
+        XCTAssertNil(slot.complete(receipt))
+    }
+
+    func testQueuedSlotCancellationReleasesHeldRequestAndRejectsOverlap() throws {
+        var slot = RelayTransferSlot()
+        let request = WireMessage.photoRequest(id: UUID(), attempt: UUID())
+        let id = try slot.begin(request, encryptedRequest: Data([7]))
+        XCTAssertThrowsError(try slot.begin(.photoRequest(id: UUID(), attempt: UUID()), encryptedRequest: Data([8])))
+        XCTAssertEqual(slot.currentID, id)
+        XCTAssertEqual(slot.cancel(), id)
+        XCTAssertNil(slot.grant(id), "No request may escape after a timeout or disconnect")
+        XCTAssertNil(slot.cancel())
+        XCTAssertThrowsError(try slot.begin(.receipt(id: UUID(), status: "pasted", detail: ""), encryptedRequest: Data()))
+        XCTAssertNil(slot.currentID)
+        let nextID = try slot.begin(request, encryptedRequest: Data([9]))
+        XCTAssertEqual(slot.grant(nextID), Data([9]))
+    }
+
     func testInvitationRequestBindsOnlyRoutingRoomAndUsesHTTPSBody() throws {
         let pairing = try PairingInfo.create(name: "Invitation test")
         let code = "SI-" + String(repeating: "a", count: 32)
