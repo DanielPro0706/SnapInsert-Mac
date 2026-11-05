@@ -1,0 +1,42 @@
+// !$*UTF8*$!
+{ archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+		C294642F1A85F4E5E47426F4 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Shared/PairingInfo.swift"; sourceTree = "<group>"; };
+		D850A7A75FBC107A7B3A8056 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Shared/SecureChannel.swift"; sourceTree = "<group>"; };
+		30151E436EF48C8F44F0052C = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Shared/WireMessage.swift"; sourceTree = "<group>"; };
+		DB2B8BC039FDB45A01FFF20B = { isa = PBXBuildFile; fileRef = C294642F1A85F4E5E47426F4; };
+		9CF4CC606D28974C4BA516D8 = { isa = PBXBuildFile; fileRef = D850A7A75FBC107A7B3A8056; };
+		636AB8911A39B1F3F2DC3D54 = { isa = PBXBuildFile; fileRef = 30151E436EF48C8F44F0052C; };
+		D087904F1B66B695181FB6E2 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "macOS/ClipboardInsertion.swift"; sourceTree = "<group>"; };
+		9AEA38154C1316CC1C2DB40A = { isa = PBXBuildFile; fileRef = D087904F1B66B695181FB6E2; };
+		CE43C259C4BCBA14FAA9138C = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "macOS/MacReceiver.swift"; sourceTree = "<group>"; };
+		529706AEC999A6388C40CE57 = { isa = PBXBuildFile; fileRef = CE43C259C4BCBA14FAA9138C; };
+		E55265E9401E55FB1A87F10D = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "macOS/ReceiverPanel.swift"; sourceTree = "<group>"; };
+		B522B72188F95D9CF8420B3B = { isa = PBXBuildFile; fileRef = E55265E9401E55FB1A87F10D; };
+		6C82189CC1EA214BDC769BB1 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "macOS/SnapInsertMacApp.swift"; sourceTree = "<group>"; };
+		4B4D0D47C9C56C2BF7D21A43 = { isa = PBXBuildFile; fileRef = 6C82189CC1EA214BDC769BB1; };
+		678941338DD4D496F43A9565 = { isa = PBXFileReference; lastKnownFileType = text.xml; path = "macOS/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
+		5AD3EC17D6662FF956613002 = { isa = PBXBuildFile; fileRef = 678941338DD4D496F43A9565; };
+		B3FF1C549ED4305A52BF1796 = { isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "macOS/Assets.xcassets"; sourceTree = "<group>"; };
+		AC1086C63EE1BE1086440737 = { isa = PBXBuildFile; fileRef = B3FF1C549ED4305A52BF1796; };
+		3EAE51B57BEF12DC79188D6F = { isa = PBXGroup; children = (D087904F1B66B695181FB6E2,CE43C259C4BCBA14FAA9138C,E55265E9401E55FB1A87F10D,6C82189CC1EA214BDC769BB1,678941338DD4D496F43A9565,B3FF1C549ED4305A52BF1796,); name = macOS; sourceTree = "<group>"; };
+		9193E5E35438ACD2C3633A09 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SnapInsertMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CDE9A9C5631675AE37310CB6 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (931D4931F9BD5B7EDF8FA9F6,EC33F7BE9A7E95A3F2E9BD6F,DB2B8BC039FDB45A01FFF20B,9CF4CC606D28974C4BA516D8,636AB8911A39B1F3F2DC3D54,9AEA38154C1316CC1C2DB40A,529706AEC999A6388C40CE57,B522B72188F95D9CF8420B3B,4B4D0D47C9C56C2BF7D21A43); runOnlyForDeploymentPostprocessing = 0; };
+		B822E2956031D667C93FE788 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		1F496570E4DF348F892B6AC0 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (5AD3EC17D6662FF956613002,AC1086C63EE1BE1086440737); runOnlyForDeploymentPostprocessing = 0; };
+		C59A786863AC570AAE5594F8 = { isa = XCBuildConfiguration; buildSettings = {PRODUCT_NAME = "SnapInsertMac"; PRODUCT_BUNDLE_IDENTIFIER = "com.danieldev.snapinsert.mac"; SDKROOT = "macosx"; MACOSX_DEPLOYMENT_TARGET = "14.0"; INFOPLIST_FILE = "macOS/Info.plist"; GENERATE_INFOPLIST_FILE = "NO"; CODE_SIGN_STYLE = "Automatic"; DEVELOPMENT_TEAM = "A47AU67Z4Q"; MARKETING_VERSION = "1.0.4"; CURRENT_PROJECT_VERSION = "5"; VERSIONING_SYSTEM = "apple-generic"; SWIFT_VERSION = "5.0"; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon"; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "AccentColor"; ENABLE_HARDENED_RUNTIME = "YES"; ENABLE_APP_SANDBOX = "NO"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";}; name = Debug; };
+		A9E13D05C7F0565E05255B79 = { isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO; PRODUCT_NAME = "SnapInsertMac"; PRODUCT_BUNDLE_IDENTIFIER = "com.danieldev.snapinsert.mac"; SDKROOT = "macosx"; MACOSX_DEPLOYMENT_TARGET = "14.0"; INFOPLIST_FILE = "macOS/Info.plist"; GENERATE_INFOPLIST_FILE = "NO"; CODE_SIGN_STYLE = "Automatic"; DEVELOPMENT_TEAM = "A47AU67Z4Q"; MARKETING_VERSION = "1.0.4"; CURRENT_PROJECT_VERSION = "5"; VERSIONING_SYSTEM = "apple-generic"; SWIFT_VERSION = "5.0"; SWIFT_OPTIMIZATION_LEVEL = "-O"; ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon"; ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "AccentColor"; ENABLE_HARDENED_RUNTIME = "YES"; ENABLE_APP_SANDBOX = "NO"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";}; name = Release; };
+		C57F873E42E5BCF94172F21A = { isa = XCConfigurationList; buildConfigurations = (C59A786863AC570AAE5594F8,A9E13D05C7F0565E05255B79,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		22975C1D8FD130CEA5BEE578 = { isa = PBXNativeTarget; buildConfigurationList = C57F873E42E5BCF94172F21A; buildPhases = (CDE9A9C5631675AE37310CB6,B822E2956031D667C93FE788,1F496570E4DF348F892B6AC0,); buildRules = (); dependencies = (); name = SnapInsertMac; productName = SnapInsertMac; productReference = 9193E5E35438ACD2C3633A09; productType = "com.apple.product-type.application"; };
+		AB52CB08E0FDF02BF6C67C33 = { isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; GCC_C_LANGUAGE_STANDARD = gnu17; SWIFT_STRICT_CONCURRENCY = targeted; DEBUG_INFORMATION_FORMAT = "dwarf"; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"; }; name = Debug; };
+		5283471FF90C511CFE244FFF = { isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; GCC_C_LANGUAGE_STANDARD = gnu17; SWIFT_STRICT_CONCURRENCY = targeted; DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)"; }; name = Release; };
+		4BA304E783CFBB9FA6E56552 = { isa = XCConfigurationList; buildConfigurations = (AB52CB08E0FDF02BF6C67C33,5283471FF90C511CFE244FFF,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		00C45FD35CB0F9C5F764F070 = { isa = PBXGroup; children = (9193E5E35438ACD2C3633A09,); name = Products; sourceTree = "<group>"; };
+		7A6860A1A04070265E6C4DE6 = { isa = PBXGroup; children = (7C38B2ECE529123CF22142CB,070D1EB9F05E613A94EC0B32,C294642F1A85F4E5E47426F4,D850A7A75FBC107A7B3A8056,30151E436EF48C8F44F0052C,); name = Shared; sourceTree = "<group>"; };
+		ADCF10F76EBF2A74473E9DC4 = { isa = PBXGroup; children = (7A6860A1A04070265E6C4DE6,3EAE51B57BEF12DC79188D6F,00C45FD35CB0F9C5F764F070,); sourceTree = "<group>"; };
+		98F54143AB4E86B28C3AFEE0 = { isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = YES; LastUpgradeCheck = 2710; }; buildConfigurationList = 4BA304E783CFBB9FA6E56552; compatibilityVersion = "Xcode 14.0"; developmentRegion = zh_CN; hasScannedForEncodings = 0; knownRegions = (en, zh_CN, Base); mainGroup = ADCF10F76EBF2A74473E9DC4; productRefGroup = 00C45FD35CB0F9C5F764F070; projectDirPath = ""; projectRoot = ""; targets = (22975C1D8FD130CEA5BEE578,); };
+
+		070D1EB9F05E613A94EC0B32 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Shared/RelayChannel.swift"; sourceTree = "<group>"; };
+		EC33F7BE9A7E95A3F2E9BD6F = { isa = PBXBuildFile; fileRef = 070D1EB9F05E613A94EC0B32; };
+		7C38B2ECE529123CF22142CB = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Shared/RelayConfiguration.swift"; sourceTree = "<group>"; };
+		931D4931F9BD5B7EDF8FA9F6 = { isa = PBXBuildFile; fileRef = 7C38B2ECE529123CF22142CB; };
+}; rootObject = 98F54143AB4E86B28C3AFEE0; }

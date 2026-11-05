@@ -1,0 +1,19 @@
+name: Build and test Mac
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test shared protocol
+        run: swift test
+      - name: Build Mac receiver
+        run: xcodebuild -project SnapInsert.xcodeproj -scheme SnapInsertMac -configuration Release -derivedDataPath build/mac CODE_SIGNING_ALLOWED=NO build
